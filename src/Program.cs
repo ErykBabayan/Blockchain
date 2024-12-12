@@ -1,6 +1,15 @@
-﻿// See https://aka.ms/new-console-template for more information
+﻿namespace Blockchain;
 
-using Blockchain.Entity;
+using Models;
 
-Console.WriteLine("Hello, World!");
-var block = new Block(DateTime.Now, new List<Transaction>(), "");
+public static class Program
+{
+    public static void Main(string[] args)
+    {
+        var blockchain = new Blockchain();
+        
+        var block = new Block(DateTime.UtcNow, [], "dupa");
+        
+        blockchain.MineBlock(block);
+    }
+}

@@ -1,4 +1,4 @@
-namespace Blockchain.Entity;
+namespace Blockchain.Models;
 
 public class Transaction
 {

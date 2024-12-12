@@ -1,7 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
-namespace Blockchain.Entity;
+namespace Blockchain.Models;
 
 public class Block
 {
@@ -26,19 +26,23 @@ public class Block
 
     public string CalculateHash()
     {
-        var sha256 = SHA256.Create();
 
         var rawData = Index + CreatedAt.ToString("O") + PreviousHash + Nonce +
                       string.Join(",", Transactions.Select(t => t.ToString()));
 
-        var bytes = sha256.ComputeHash(Encoding.UTF8.GetBytes(rawData));
+        var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(rawData));
 
-        Console.WriteLine(bytes);
-        Console.WriteLine(BytesToHex(bytes));
-        
         return BytesToHex(bytes);
     }
-    
+
+    public byte[] CalculateHashBytes()
+    {
+        var rawData = Index + CreatedAt.ToString("O") + PreviousHash + Nonce +
+                      string.Join(",", Transactions.Select(t => t.ToString()));
+
+        return SHA256.HashData(Encoding.UTF8.GetBytes(rawData));
+    }
+
     private string BytesToHex(byte[] bytes)
     {
         var builder = new StringBuilder(bytes.Length * 2);
