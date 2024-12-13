@@ -55,16 +55,19 @@ public static class Program
             switch (command[0].ToLower())
             {
                 case "send":
-                    Console.WriteLine("Send");
+                    if (command.Length > 1)
+                        node.AddTransactionToMempool(command[1]);
+                    else
+                        Console.WriteLine("Usage: send From->To:Amount");
                     break;
                 case "mine":
-                    Console.WriteLine("Mine");
+                    node.MineBlock();
                     break;
                 case "peers":
-                    Console.WriteLine("PeersList");
+                    node.ListPeers();
                     break;
                 case "chain":
-                    Console.WriteLine("THE CHAIN");
+                    node.PrintBlockchain();
                     break;
                 case "exit":
                     node.Stop();

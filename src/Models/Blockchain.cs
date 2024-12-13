@@ -18,7 +18,7 @@ public class Blockchain
         return block;
     }
 
-    private Block GetLatestBlock()
+    public Block GetLatestBlock()
     {
         return Chain.Last();
     }
