@@ -139,23 +139,25 @@ public class Node
         {
             while (_running && client.Connected)
             {
+                // Length of the message in bytes
                 var bytesRead = stream.Read(lengthBuffer, 0, 4);
                 if (bytesRead == 0) break;
                 if (bytesRead < 4) break;
 
+                // Convert it into integer
                 var msgLength = BitConverter.ToInt32(lengthBuffer, 0);
-                if (msgLength <= 0) break;
+                if (msgLength <= 0) break; // empty message
 
-                var msgBuffer = new byte[msgLength];
+                var msgBuffer = new byte[msgLength]; // Allocate a buffer for the message
                 var totalRead = 0;
-                while (totalRead < msgLength)
+                while (totalRead < msgLength) 
                 {
                     var chunkSize = stream.Read(msgBuffer, totalRead, msgLength - totalRead);
                     if (chunkSize == 0) break;
                     totalRead += chunkSize;
                 }
 
-                if (totalRead < msgLength) break;
+                if (totalRead < msgLength) break; // invalid message
 
                 HandleMessage(msgBuffer);
             }
@@ -173,8 +175,8 @@ public class Node
     
     private void HandleMessage(byte[] msgBuffer)
     {
-        if (msgBuffer.Length < 4) return;
-        var messageType = Encoding.ASCII.GetString(msgBuffer, 0, 4);
+        if (msgBuffer.Length < 4) return; // invalid message
+        var messageType = Encoding.ASCII.GetString(msgBuffer, 0, 4); // Get the message type
 
         var payload = new byte[msgBuffer.Length - 4];
         Array.Copy(msgBuffer, 4, payload, 0, payload.Length);
