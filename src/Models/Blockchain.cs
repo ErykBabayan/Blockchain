@@ -1,5 +1,3 @@
-using System.Numerics;
-
 namespace Blockchain.Models;
 
 public class Blockchain
@@ -9,14 +7,16 @@ public class Blockchain
     
     private static Block CreateGenesisBlock()
     {
-        // Genesis block has an empty list of transactions holds no value. No previous hash and index is 0.
-        var block = new Block(DateTime.UtcNow, [], "0")
-        {
-            Index = 0,
-        };
+        //In theory, it shouldn't be hardcoded but for simplicity’s sake it is.
+        // Real blockchain determines real chain by its Proof of Work algorithm. ( Longest chain is the real chain )
         
+        // Genesis block has an empty list of transactions holds no value. No previous hash and index is 0.
+        var fixedTimestamp = new DateTime(2020,1,1,0,0,0,DateTimeKind.Utc);
+        var block = new Block(fixedTimestamp, [], "0")
+        {
+            Index = 0
+        };
         block.Hash = block.CalculateHash();
-
         return block;
     }
 
@@ -47,7 +47,7 @@ public class Blockchain
         return true;
     }
 
-    public void MineBlock(Block block)
+    private void MineBlock(Block block)
     {
         // Target is a string of 0s with length of Difficulty. At current implementation sha256 hash is converted to hex string
         // so 1 hex char is equal to 4 bits. So 2 Difficulty is equal to 8 bits. 4 Difficulty is equal to 16 bits.

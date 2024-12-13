@@ -26,21 +26,14 @@ public class Block
 
     public string CalculateHash()
     {
+        // Convert timestamp to the round-trip string form before hashing it
+        var timestampString = CreatedAt.ToString("o");
 
-        var rawData = Index + CreatedAt.ToString("O") + PreviousHash + Nonce +
-                      string.Join(",", Transactions.Select(t => t.ToString()));
+        var rawData = Index + timestampString + PreviousHash + Nonce
+                      + string.Join(",", Transactions.Select(t => t.ToString()));
 
         var bytes = SHA256.HashData(Encoding.UTF8.GetBytes(rawData));
-
         return BytesToHex(bytes);
-    }
-
-    public byte[] CalculateHashBytes()
-    {
-        var rawData = Index + CreatedAt.ToString("O") + PreviousHash + Nonce +
-                      string.Join(",", Transactions.Select(t => t.ToString()));
-    
-        return SHA256.HashData(Encoding.UTF8.GetBytes(rawData));
     }
 
     private static string BytesToHex(byte[] bytes)

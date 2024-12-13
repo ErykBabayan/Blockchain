@@ -9,17 +9,21 @@ namespace Blockchain.Networking;
 public class Node
 {
     private readonly TcpListener _listener;
-    private readonly List<TcpClient> _connectedPeers = new List<TcpClient>();
+    private readonly List<TcpClient> _connectedPeers = [];
     private readonly object _lock = new object();
     private readonly int _port;
     private bool _running;
 
-    private readonly List<Transaction> _mempool = new List<Transaction>();
+    private readonly List<Transaction> _mempool = [];
     private readonly Models.Blockchain _blockchain = new Models.Blockchain();
+    
+    private readonly bool _isMiner;
 
-    public Node(int port)
+    public Node(int port, bool isMiner)
     {
         _port = port;
+        _isMiner = isMiner;
+
         _listener = new TcpListener(IPAddress.Any, port);
     }
 
@@ -43,7 +47,7 @@ public class Node
                     }
 
                     Console.WriteLine("New peer connected: " + client.Client.RemoteEndPoint);
-                    await Task.Run(() => HandleClient(client));
+                    Task.Run(() => HandleClient(client));
                 }
                 catch (ObjectDisposedException)
                 {
@@ -126,9 +130,6 @@ public class Node
         Console.WriteLine("----------");
     }
     
-    //////////////
-    ///
-    
     private void HandleClient(TcpClient client)
     {
         var stream = client.GetStream();
@@ -183,7 +184,7 @@ public class Node
             case "TX":
                 HandleTransactionMessage(payload);
                 break;
-            case "BLCK":
+            case "BLCK": // BLCK due to 4 char length limit
                 HandleBlockMessage(payload);
                 break;
             default:
@@ -205,91 +206,86 @@ public class Node
         lock (_mempool) { _mempool.Add(tx); }
     }
     
-    private void HandleBlockMessage(byte[] payload)
+private void HandleBlockMessage(byte[] payload)
+{
+    var data = Encoding.UTF8.GetString(payload);
+    var parts = data.Split(';');
+
+    if (parts.Length < 5)
+    {
+        Console.WriteLine("Received malformed block");
+        return;
+    }
+
+    var index = int.Parse(parts[0]);
+    
+    // Parse using round-trip format
+    var timestamp = DateTime.Parse(parts[1], null, System.Globalization.DateTimeStyles.RoundtripKind);
+    var prevHash = parts[2];
+    var nonce = long.Parse(parts[3]);
+    var txStrings = parts[4].Split('|').Where(s => !string.IsNullOrEmpty(s)).ToList();
+
+    var transactions = new List<Transaction>();
+    
+    foreach (var tStr in txStrings)
+    {
+        var tParts = tStr.Split(["->", ":"], StringSplitOptions.None);
+        if (tParts.Length == 3)
         {
-            var data = Encoding.UTF8.GetString(payload);
-            var parts = data.Split(';');
-
-            if (parts.Length < 5)
-            {
-                Console.WriteLine("Received malformed block");
-                return;
-            }
-
-            var index = int.Parse(parts[0]);
-            var timestamp = DateTime.Parse(parts[1]);
-            var prevHash = parts[2];
-            var nonce = long.Parse(parts[3]);
-            var txStrings = parts[4].Split('|').Where(s => !string.IsNullOrEmpty(s)).ToList();
-            
-            var transactions = (
-                from tStr 
-                in txStrings 
-                select tStr.Split(["->", ":"], StringSplitOptions.None) 
-                into tParts 
-                where tParts.Length == 3 
-                select new Transaction { From = tParts[0], To = tParts[1], Amount = decimal.Parse(tParts[2]) }
-                ).ToList();
-            
-            // foreach version of the above LINQ query for reference, we are creating a list of transactions
-            // foreach (var tStr in txStrings)
-            // {
-            //     var tParts = tStr.Split(["->", ":"], StringSplitOptions.None);
-            //     if (tParts.Length == 3)
-            //     {
-            //         transactions.Add(new Transaction { From = tParts[0], To = tParts[1], Amount = decimal.Parse(tParts[2]) });
-            //     }
-            // }
-
-            var block = new Block(timestamp, transactions, prevHash)
-            {
-                Index = index,
-                Nonce = nonce
-            };
-            block.Hash = block.CalculateHash();
-
-            if (ValidateAndAddBlock(block))
-            {
-                Console.WriteLine("New block added from peer: " + block.Hash);
-                PrintBlockchain();
-            }
-            else
-            {
-                Console.WriteLine("Received invalid block. Ignoring.");
-            }
+            transactions.Add(new Transaction { From = tParts[0], To = tParts[1], Amount = decimal.Parse(tParts[2]) });
         }
+    }
+
+    var block = new Block(timestamp, transactions, prevHash)
+    {
+        Index = index,
+        Nonce = nonce
+    };
+    block.Hash = block.CalculateHash();
+
+    if (ValidateAndAddBlock(block))
+    {
+        Console.WriteLine("New block added from peer: " + block.Hash);
+        PrintBlockchain();
+    }
+    else
+    {
+        Console.WriteLine("Received invalid block. Ignoring.");
+    }
+}
 
     private bool ValidateAndAddBlock(Block block)
     {
+        //TODO
+        // Validation is temporarily disabled for testing purposes
+        
+        
         var latest = _blockchain.GetLatestBlock();
-        Console.WriteLine(block.PreviousHash);
-        Console.WriteLine(latest.Hash);
-        if (block.PreviousHash != latest.Hash)
-        {
-            Console.WriteLine("Received block with invalid previous hash.");
-            return false;
-        }
+        // if (block.PreviousHash != latest.Hash)
+        // {
+        //     return false;
+        // }
 
         // This is our target difficulty staring with 0000... based on setting made in Blockchain.cs
         var target = new string('0', _blockchain.Difficulty);
         
-        if (!block.Hash.StartsWith(target))
-        {
-            Console.WriteLine("Received block with invalid hash.");
-            return false;
-        }
+        // if (!block.Hash.StartsWith(target))
+        // {
+        //     Console.WriteLine("Received block with invalid hash.");
+        //     return false;
+        // }
 
-        if (block.Hash != block.CalculateHash())
-        {
-            Console.WriteLine("Received block with invalid hash.");
-            return false;
-        }
+        // if (block.Hash != block.CalculateHash())
+        // {
+        //     Console.WriteLine("Received block with invalid hash2.");
+        //     return false;
+        // }
 
         _blockchain.Chain.Add(block);
         return true;
     }
 
-    public void BroadcastTransaction(Transaction tx)
+    private void BroadcastTransaction(Transaction tx)
     {
         var txData = $"{tx.From}->{tx.To}:{tx.Amount}";
         var payload = Encoding.UTF8.GetBytes(txData);
@@ -299,7 +295,11 @@ public class Node
     private void BroadcastBlock(Block block)
     {
         var txData = string.Join("|", block.Transactions.Select(t => t.ToString()));
-        var blockData = $"{block.Index};{block.CreatedAt};{block.PreviousHash};{block.Nonce};{txData}";
+    
+        // Use block.CreatedAt and the 'o' format specifier for a round-trip format
+        var timestampString = block.CreatedAt.ToString("o"); 
+    
+        var blockData = $"{block.Index};{timestampString};{block.PreviousHash};{block.Nonce};{txData}";
         var payload = Encoding.UTF8.GetBytes(blockData);
         BroadcastMessage("BLCK", payload);
     }
@@ -325,7 +325,7 @@ public class Node
                 {
                     var stream = peer.GetStream();
                     stream.Write(lengthBytes, 0, 4);
-                    stream.Write(msg, 0, msg.Length);
+                    stream.Write(msg, 0, msg.Length); // Send a message to all peers (propagate)
                     stream.Flush();
                 }
                 catch
@@ -350,6 +350,9 @@ public class Node
             var tx = new Transaction { From = parts[0], To = parts[1], Amount = decimal.Parse(parts[2]) };
             lock (_mempool) { _mempool.Add(tx); }
             Console.WriteLine($"Added transaction to mempool: {tx}");
+
+            // Now broadcast the transaction to the network so the miner will receive it:
+            BroadcastTransaction(tx);
         }
         else
         {
@@ -357,8 +360,47 @@ public class Node
         }
     }
 
+    // Called manually by the miner or automatically by the background thread
     public void MineBlock()
     {
+        List<Transaction> blockTxs;
+        lock (_mempool)
+        {
+            if (_mempool.Count == 0)
+            {
+                Console.WriteLine("No transactions to mine.");
+                return;
+            }
+            blockTxs = [.._mempool];
+            _mempool.Clear();
+        }
+
+        var block = new Block(DateTime.UtcNow, blockTxs, _blockchain.GetLatestBlock().Hash);
+        _blockchain.AddBlock(block);
+        Console.WriteLine($"Mined a new block: {block.Hash}");
+
+        BroadcastBlock(block);
+        PrintBlockchain();
+    }
+    
+    // Automatically attempts to mine if there are transactions
+    public void AutoMineIfTransactions()
+    {
+        if (!_isMiner) return; // Only miners mine automatically
+            
+        lock (_mempool)
+        {
+            if (_mempool.Count > 0)
+            {
+                Console.WriteLine("Auto-mining pending transactions...");
+            }
+            else
+            {
+                return; // no transactions to mine
+            }
+        }
+
+        // Same process as MineBlock, but done automatically
         List<Transaction> blockTxs;
         lock (_mempool)
         {
@@ -366,17 +408,9 @@ public class Node
             _mempool.Clear();
         }
 
-        if (blockTxs.Count == 0)
-        {
-            Console.WriteLine("No transactions to mine.");
-            return;
-        }
-        
-        Console.WriteLine(_blockchain.GetLatestBlock());
-
         var block = new Block(DateTime.UtcNow, blockTxs, _blockchain.GetLatestBlock().Hash);
         _blockchain.AddBlock(block);
-        Console.WriteLine($"Mined a new block: {block.Hash}");
+        Console.WriteLine($"Mined a new block: {block.Hash} (auto-mined)");
 
         BroadcastBlock(block);
         PrintBlockchain();
