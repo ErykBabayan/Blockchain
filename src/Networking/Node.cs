@@ -1,7 +1,9 @@
 using System.Net;
 using System.Net.Sockets;
+using System.Numerics;
+using System.Text;
 using Blockchain.Models;
-using Transaction = System.Transactions.Transaction;
+using Transaction = Blockchain.Models.Transaction;
 
 namespace Blockchain.Networking;
 
@@ -10,7 +12,7 @@ public class Node
     private TcpListener _listener;
     private List<TcpClient> _connectedPeers = new List<TcpClient>();
     private object _lock = new object();
-    private bool _running = false;
+    private bool _running;
     private int _port;
 
     private List<Transaction> _mempool = new List<Transaction>();
@@ -26,6 +28,7 @@ public class Node
     {
         _listener.Start();
         _running = true;
+
         Console.WriteLine($"Node listening on port {_port}");
 
         Task.Run(async () =>
@@ -35,11 +38,19 @@ public class Node
                 try
                 {
                     var client = await _listener.AcceptTcpClientAsync();
-                    lock (_lock) { _connectedPeers.Add(client); }
+                    lock (_lock)
+                    {
+                        _connectedPeers.Add(client);
+                    }
+
                     Console.WriteLine("New peer connected: " + client.Client.RemoteEndPoint);
-                    Task.Run(() => HandleClient(client));
+                    await Task.Run(() => HandleClient(client));
                 }
-                catch (ObjectDisposedException) { }
+                catch (ObjectDisposedException)
+                {
+                    Console.WriteLine("Error occurred while accepting client.");
+                    throw new Exception("Listener stopped.");
+                }
             }
         });
     }
@@ -80,6 +91,18 @@ public class Node
             throw;
         }
     }
+    
+    public void ListPeers()
+    {
+        lock (_lock)
+        {
+            Console.WriteLine("Connected peers:");
+            foreach (var p in _connectedPeers)
+            {
+                Console.WriteLine("- " + p.Client.RemoteEndPoint);
+            }
+        }
+    }
 
     private void HandleClient(TcpClient client)
     {
@@ -98,6 +121,7 @@ public class Node
                 if (msgLength <= 0) break;
 
                 var msgBuffer = new byte[msgLength];
+
                 var totalRead = 0;
                 while (totalRead < msgLength)
                 {
@@ -108,7 +132,7 @@ public class Node
 
                 if (totalRead < msgLength) break;
 
-                // HandleMessage(msgBuffer, client);
+                 //HandleMessage(msgBuffer); //TODO
             }
         }
         catch (Exception ex)
@@ -119,5 +143,14 @@ public class Node
         lock (_lock) { _connectedPeers.Remove(client); }
         client.Close();
         Console.WriteLine("Peer disconnected: " + client.Client.RemoteEndPoint);
+    }
+    public void PrintBlockchain()
+    {
+        Console.WriteLine("Current Blockchain:");
+        foreach (var b in _blockchain.Chain)
+        {
+            Console.WriteLine($"Index: {b.Index}, Hash: {b.Hash.Substring(0, 16)}..., Prev: {b.PreviousHash.Substring(0, 16)}..., TxCount: {b.Transactions.Count}");
+        }
+        Console.WriteLine("----------");
     }
 }
