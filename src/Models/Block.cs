@@ -39,11 +39,11 @@ public class Block
     {
         var rawData = Index + CreatedAt.ToString("O") + PreviousHash + Nonce +
                       string.Join(",", Transactions.Select(t => t.ToString()));
-
+    
         return SHA256.HashData(Encoding.UTF8.GetBytes(rawData));
     }
 
-    private string BytesToHex(byte[] bytes)
+    private static string BytesToHex(byte[] bytes)
     {
         var builder = new StringBuilder(bytes.Length * 2);
 

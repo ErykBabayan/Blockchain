@@ -2,8 +2,6 @@
 
 namespace Blockchain;
 
-using Models;
-
 public static class Program
 {
     public static void Main(string[] args)
@@ -15,21 +13,19 @@ public static class Program
         {
             int.TryParse(args[0], out port);
         }
-        
+
         for (var i = 1; i < args.Length; i++)
         {
             initialPeers.Add(args[i]);
         }
 
         var node = new Node(port);
-        
         node.Start();
 
         foreach (var peer in initialPeers)
         {
             var parts = peer.Split(':');
-
-            if (parts.Length == 2 && int.TryParse(parts[1], out var p))
+            if (parts.Length == 2 && int.TryParse(parts[1], out int p))
             {
                 node.ConnectToPeer(parts[0], p);
             }

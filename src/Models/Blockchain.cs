@@ -9,11 +9,13 @@ public class Blockchain
     
     private static Block CreateGenesisBlock()
     {
-        // Genesis block has an empty list of transactions holds no value
+        // Genesis block has an empty list of transactions holds no value. No previous hash and index is 0.
         var block = new Block(DateTime.UtcNow, [], "0")
         {
-            Index = 0
+            Index = 0,
         };
+        
+        block.Hash = block.CalculateHash();
 
         return block;
     }
@@ -45,45 +47,17 @@ public class Blockchain
         return true;
     }
 
-    // Calculates target based on the difficulty, for simplicity, let's say difficulty = nr of leading zero hex chars required
-    // Difficulty 5 means 20 leading zero bits in a given hash
-    private BigInteger CalculateTarget()
-    {
-        var maxVal = (BigInteger.One << 256) - 1;
-        var shiftBits = 4 * Difficulty; // each unit is 4 bits
-
-        var target = maxVal >> shiftBits;
-
-        return target;
-    }
-
     public void MineBlock(Block block)
     {
-        var target = CalculateTarget();
-
-        BigInteger hashValue;
-
-        // Loop until hashValue <= target
-        // Convert hash bytes to BigInteger for comparison
-        // BigInteger in .NET assumes little-endian by default, so we might need to reverse.
-        // SHA256 is big-endian, so we reverse bytes before creating the BigInteger.
-        do
+        // Target is a string of 0s with length of Difficulty. At current implementation sha256 hash is converted to hex string
+        // so 1 hex char is equal to 4 bits. So 2 Difficulty is equal to 8 bits. 4 Difficulty is equal to 16 bits.
+        var target = new string('0', Difficulty);
+        
+        while (!block.Hash.StartsWith(target))
         {
             block.Nonce++;
-            var hashBytes = block.CalculateHashBytes();
-            
-            // Reverse because BigInteger expects the least significant byte first
-            var reversed = (byte[])hashBytes.Clone();
-            Array.Reverse(reversed);
-            hashValue = new BigInteger(reversed, isUnsigned: true, isBigEndian: false);
-            
-        } while (hashValue > target);
-        
+            block.Hash = block.CalculateHash();
+        }
         Console.WriteLine($"Block mined with hash: {block.Hash}");
     }
-
-    // private string BytesToBinary(byte[] bytes)
-    // {
-    //     return string.Join("", bytes.Select(b => Convert.ToString(b, 2).PadLeft(8, '0')));
-    // }
 }
