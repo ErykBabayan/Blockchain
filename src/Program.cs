@@ -24,6 +24,7 @@ public static class Program
 
         foreach (var peer in initialPeers)
         {
+            Console.WriteLine(peer);
             var parts = peer.Split(':');
             if (parts.Length == 2 && int.TryParse(parts[1], out int p))
             {
